@@ -15,12 +15,28 @@ async function proxy(req: NextRequest, context: { params: Promise<{ path: string
   const contentType = req.headers.get('content-type');
   if (contentType) headers.set('content-type', contentType);
 
-  const res = await fetch(target, {
-    method: req.method,
-    headers,
-    body: ['GET', 'HEAD'].includes(req.method) ? undefined : await req.text(),
-    cache: 'no-store',
-  });
+  // The main API is the ONLY upstream — surface an unreachable/misconfigured one as a clear 502
+  // instead of an opaque 500. This is the usual cause of a login that "does nothing": either
+  // REHABSYNC_API_URL is unset (defaulting to localhost, which serverless can't reach) or the API
+  // isn't deployed at that origin.
+  let res: Response;
+  try {
+    res = await fetch(target, {
+      method: req.method,
+      headers,
+      body: ['GET', 'HEAD'].includes(req.method) ? undefined : await req.text(),
+      cache: 'no-store',
+      signal: AbortSignal.timeout(15000),
+    });
+  } catch (err) {
+    console.error('[admin-auth-proxy] cannot reach admin API at', target.origin, (err as Error).message);
+    return NextResponse.json(
+      {
+        error: `Could not reach the RehabSync admin API at ${target.origin}. Confirm REHABSYNC_API_URL is set for this deployment and that the API is live.`,
+      },
+      { status: 502, headers: { 'cache-control': 'no-store' } },
+    );
+  }
 
   const responseHeaders = new Headers();
   const responseContentType = res.headers.get('content-type');

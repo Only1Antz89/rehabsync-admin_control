@@ -20,9 +20,14 @@ uses, plus the host-aware session cookie that makes login work on every host.
 
 | Variable | Notes |
 |---|---|
-| `REHABSYNC_API_URL` | `https://api.rehabsync.app` — the console's single upstream |
+| `REHABSYNC_API_URL` | `https://api.rehabsync.app` — the console's single upstream. **Required.** If unset it defaults to `localhost:4000`, which serverless can't reach, and every request (including login) fails. |
 | `REHABSYNC_NODE_ENV` | `production` |
 | `NEXT_PUBLIC_APP_URL` | `https://admincentre.rehabsync.app` |
+
+> **Login returns 502 "Could not reach the RehabSync admin API…"?** That's the console telling you
+> the upstream is wrong or down. Confirm `REHABSYNC_API_URL` points at the **deployed** main API
+> (the NestJS `apps/api`, not the web app), and that the API itself is live and can reach its
+> database. The console holds no credentials of its own — it can only be as healthy as that API.
 
 ## 4. First account
 
