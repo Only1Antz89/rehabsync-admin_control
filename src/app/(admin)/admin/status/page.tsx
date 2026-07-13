@@ -2,7 +2,15 @@ import Link from 'next/link';
 import { Badge } from '@rs/ui';
 import { Activity, ArrowUpRight, Bell, ServerCog, ShieldCheck } from 'lucide-react';
 import { adminFetch } from '../../../../lib/admin-api';
-import { getDependencyStatuses, overallState, stateLabel, type DependencyStatus, type ServiceState } from '../../../status/status-data';
+import {
+  getAdminConfigurationStatuses,
+  getDependencyStatuses,
+  overallState,
+  stateLabel,
+  type AdminConfigurationStatus,
+  type DependencyStatus,
+  type ServiceState,
+} from '../../../status/status-data';
 
 export const dynamic = 'force-dynamic';
 
@@ -59,6 +67,10 @@ function groupDependencies(dependencies: DependencyStatus[]): Map<string, Depend
   return groups;
 }
 
+function configurationBadgeVariant(configured: boolean): 'success' | 'warning' {
+  return configured ? 'success' : 'warning';
+}
+
 export default async function AdminStatusPage() {
   const [dependencies, internalHealth] = await Promise.all([
     getDependencyStatuses(),
@@ -66,6 +78,7 @@ export default async function AdminStatusPage() {
       .then(async (res) => (res.ok ? ((await res.json()) as InternalHealth) : null))
       .catch(() => null),
   ]);
+  const configurations: AdminConfigurationStatus[] = getAdminConfigurationStatuses();
   const internalState = internalServiceState(internalHealth);
   const state = worstServiceState([overallState(dependencies), internalState]);
   const groups = groupDependencies(dependencies);
@@ -163,6 +176,31 @@ export default async function AdminStatusPage() {
           ))}
         </div>
       </article>
+
+      <section className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+        <header className="border-b border-slate-100 px-5 py-4">
+          <h2 className="font-bold text-slate-950">Configuration checks</h2>
+          <p className="mt-1 text-sm text-slate-600">
+            Operational configuration visible to RehabSync superadmins only.
+          </p>
+        </header>
+        <div className="divide-y divide-slate-100">
+          {configurations.map((configuration) => (
+            <div key={configuration.id} className="grid gap-3 px-5 py-4 lg:grid-cols-[1fr_auto] lg:items-start">
+              <div>
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                  <h3 className="font-bold text-slate-950">{configuration.name}</h3>
+                  <Badge variant={configurationBadgeVariant(configuration.configured)}>
+                    {configuration.configured ? 'Configured' : 'Not configured'}
+                  </Badge>
+                </div>
+                <p className="mt-1 text-sm text-slate-600">{configuration.description}</p>
+                <p className="mt-2 text-xs font-semibold text-slate-500">{configuration.detail}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
 
       <section className="grid gap-5">
         {Array.from(groups.entries()).map(([group, items]) => (

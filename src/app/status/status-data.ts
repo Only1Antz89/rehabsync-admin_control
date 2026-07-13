@@ -16,6 +16,14 @@ export interface DependencyStatus {
   detail?: string;
 }
 
+export interface AdminConfigurationStatus {
+  id: string;
+  name: string;
+  description: string;
+  configured: boolean;
+  detail: string;
+}
+
 interface StatuspageComponent {
   name?: string;
   status?: string;
@@ -463,6 +471,22 @@ export async function getDependencyStatuses(): Promise<DependencyStatus[]> {
   ]);
 
   return [...supabase, ...kinetix, ...google, vercel, stripe, smtp2go];
+}
+
+/** Configuration checks intentionally kept out of the public status page. */
+export function getAdminConfigurationStatuses(): AdminConfigurationStatus[] {
+  const turnConfigured = env('REHABSYNC_TURN_CONFIGURED') === 'true' || Boolean(env('REHABSYNC_TURN_URL'));
+  return [
+    {
+      id: 'turn-relay',
+      name: 'TURN relay',
+      description: 'Optional WebRTC relay for restrictive clinic, office, and VPN networks.',
+      configured: turnConfigured,
+      detail: turnConfigured
+        ? 'Configured for browser call fallback.'
+        : 'Not configured. Direct WebRTC calls remain available; configure it when relay fallback is needed.',
+    },
+  ];
 }
 
 export function overallState(dependencies: DependencyStatus[]): ServiceState {
