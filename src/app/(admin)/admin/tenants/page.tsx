@@ -5,7 +5,11 @@ import type { BadgeVariant } from '@rs/ui';
 import { TenantsFilter } from './TenantsFilter';
 import { TenantActions } from './TenantActions';
 import { HealthBadge, type HealthBand } from './HealthBadge';
+import { Pagination } from '../../../../lib/Pagination';
+import { SavedViews } from '../../../../lib/SavedViews';
 import { adminFetch } from '../../../../lib/admin-api';
+
+const PAGE_SIZE = 25;
 
 interface TenantHealthRow {
   tenantId: string;
@@ -99,16 +103,21 @@ function formatDate(iso: string): string {
 export default async function TenantsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ search?: string; status?: string; planId?: string }>;
+  searchParams: Promise<{ search?: string; status?: string; planId?: string; page?: string }>;
 }) {
   const params = await searchParams;
   const [{ tenants, total }, health] = await Promise.all([fetchTenants(params), fetchTenantHealth()]);
   const count = total ?? tenants.length;
 
+  // Client-side (already-fetched) pagination via ?page — no API change.
+  const totalPages = Math.max(1, Math.ceil(tenants.length / PAGE_SIZE));
+  const currentPage = Math.min(Math.max(1, Number.parseInt(params.page ?? '1', 10) || 1), totalPages);
+  const pageRows = tenants.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <h1 className="text-2xl font-semibold" style={{ color: 'var(--text-primary)' }}>Tenants</h1>
           <span
@@ -118,6 +127,9 @@ export default async function TenantsPage({
             {count}
           </span>
         </div>
+        <Suspense>
+          <SavedViews storageKey="tenants" paramKeys={['search', 'status', 'planId']} />
+        </Suspense>
       </div>
 
       {/* Filters */}
@@ -169,7 +181,7 @@ export default async function TenantsPage({
                   </td>
                 </tr>
               ) : (
-                tenants.map((tenant) => (
+                pageRows.map((tenant) => (
                   <tr key={tenant.id} className="transition-colors" style={{ ['--tw-divide-color' as string]: 'var(--border-secondary)' }}>
                     <td className="px-4 py-3 font-medium" style={{ color: 'var(--text-primary)' }}>
                       <Link
@@ -216,6 +228,11 @@ export default async function TenantsPage({
           </table>
         </div>
       </div>
+
+      {/* Pagination */}
+      <Suspense>
+        <Pagination currentPage={currentPage} totalPages={totalPages} />
+      </Suspense>
     </div>
   );
 }

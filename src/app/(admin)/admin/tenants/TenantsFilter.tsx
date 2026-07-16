@@ -39,13 +39,13 @@ export function TenantsFilter({
         placeholder="Search clinics…"
         defaultValue={search ?? ''}
         onChange={(e) => updateParams('search', e.target.value)}
-        className="w-56"
+        className="w-full sm:w-56"
       />
 
       <select
         defaultValue={status ?? ''}
         onChange={(e) => updateParams('status', e.target.value)}
-        className="h-9 px-3 py-1.5 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-400"
+        className="w-full sm:w-auto h-9 px-3 py-1.5 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-400"
         style={{
           border: '1px solid var(--border-primary)',
           backgroundColor: 'var(--bg-input)',
@@ -63,7 +63,7 @@ export function TenantsFilter({
       <select
         defaultValue={planId ?? ''}
         onChange={(e) => updateParams('planId', e.target.value)}
-        className="h-9 px-3 py-1.5 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-400"
+        className="w-full sm:w-auto h-9 px-3 py-1.5 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-400"
         style={{
           border: '1px solid var(--border-primary)',
           backgroundColor: 'var(--bg-input)',
