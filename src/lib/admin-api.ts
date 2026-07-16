@@ -4,11 +4,13 @@ import { cookies } from 'next/headers';
 const API_URL = process.env['REHABSYNC_API_URL']?.trim() || process.env['NEXT_PUBLIC_API_URL']?.trim() || 'http://localhost:4000';
 const ADMIN_API_TIMEOUT_MS = 30_000;
 
+export type AdminRole = 'support' | 'admin' | 'super_admin' | 'billing' | 'read_only';
+
 export interface AdminSession {
   id: string;
   email: string;
   name: string;
-  role: 'support' | 'admin' | 'super_admin';
+  role: AdminRole;
 }
 
 async function adminCookieHeader(): Promise<string> {
@@ -46,9 +48,8 @@ export async function adminFetch(path: string, init?: RequestInit): Promise<Resp
   if (!admin) {
     return Response.json({ error: 'Platform admin session required' }, { status: 401 });
   }
-  if (!isSuperadmin(admin)) {
-    return Response.json({ error: 'Not found' }, { status: 404 });
-  }
+  // Any authenticated platform admin may call through; the platform API enforces per-endpoint
+  // access by role (default-deny), returning 404 for anything this admin's role can't reach.
 
   const cookieHeader = await adminCookieHeader();
 

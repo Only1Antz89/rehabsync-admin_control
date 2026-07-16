@@ -13,6 +13,13 @@ interface AdminRow {
   createdAt: string;
 }
 
+const ROLE_OPTIONS: { value: string; label: string }[] = [
+  { value: 'super_admin', label: 'Super admin' },
+  { value: 'support', label: 'Support' },
+  { value: 'billing', label: 'Billing' },
+  { value: 'read_only', label: 'Read only' },
+];
+
 const inputClass =
   'block w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2';
 const inputStyle = {
@@ -128,8 +135,9 @@ export function PlatformAdminsManager() {
           <div>
             <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>Role</label>
             <select value={role} onChange={(e) => setRole(e.target.value)} className={inputClass} style={inputStyle}>
-              <option value="super_admin">Super admin</option>
-              <option value="support">Support</option>
+              {ROLE_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>{o.label}</option>
+              ))}
             </select>
           </div>
           <div>
@@ -203,20 +211,22 @@ export function PlatformAdminsManager() {
                     <button className="text-sm font-medium underline" style={{ color: 'var(--brand-primary, #0d9488)' }} disabled={busy === admin.id} onClick={() => resetPassword(admin)}>
                       Reset password
                     </button>
-                    <button
-                      className="text-sm font-medium underline"
-                      style={{ color: 'var(--brand-primary, #0d9488)' }}
+                    <select
+                      value={admin.role}
                       disabled={busy === admin.id}
-                      onClick={() =>
-                        void patch(
-                          admin,
-                          { role: admin.role === 'super_admin' ? 'support' : 'super_admin' },
-                          `Change ${admin.email} to ${admin.role === 'super_admin' ? 'support' : 'super admin'}?`,
-                        )
-                      }
+                      aria-label={`Role for ${admin.email}`}
+                      className="text-sm rounded-md border px-2 py-1"
+                      style={inputStyle}
+                      onChange={(e) => {
+                        const next = e.target.value;
+                        if (next === admin.role) return;
+                        void patch(admin, { role: next }, `Change ${admin.email} to ${next.replace('_', ' ')}?`);
+                      }}
                     >
-                      {admin.role === 'super_admin' ? 'Make support' : 'Make super admin'}
-                    </button>
+                      {ROLE_OPTIONS.map((o) => (
+                        <option key={o.value} value={o.value}>{o.label}</option>
+                      ))}
+                    </select>
                     <button
                       className="text-sm font-medium underline"
                       style={{ color: admin.status === 'active' ? '#b91c1c' : 'var(--brand-primary, #0d9488)' }}

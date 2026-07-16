@@ -1,8 +1,8 @@
 import React from 'react';
 import type { Metadata } from 'next';
 import { headers } from 'next/headers';
-import { notFound, redirect } from 'next/navigation';
-import { getAdminSession, isSuperadmin } from '../../lib/admin-api';
+import { redirect } from 'next/navigation';
+import { getAdminSession, type AdminRole } from '../../lib/admin-api';
 import { AdminFrame } from './AdminFrame';
 
 // SECURITY: the superadmin console must never be indexed or surfaced by any
@@ -30,15 +30,15 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   const headersList = await headers();
   const pathname = headersList.get('x-pathname') ?? '';
 
+  let role: AdminRole | undefined;
   if (pathname !== '/admin/login') {
     const admin = await getAdminSession();
     if (!admin) {
       redirect('/admin/login');
     }
-    if (!isSuperadmin(admin)) {
-      notFound();
-    }
+    // Any active platform admin may enter; the sidebar + the platform API scope what they can see.
+    role = admin.role;
   }
 
-  return <AdminFrame>{children}</AdminFrame>;
+  return <AdminFrame role={role}>{children}</AdminFrame>;
 }

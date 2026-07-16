@@ -29,6 +29,7 @@ import {
   ShoppingBag,
 } from 'lucide-react';
 import { ThemeToggle } from '../../lib/ThemeToggle';
+import type { AdminRole } from '../../lib/admin-api';
 
 interface NavItem {
   label: string;
@@ -36,7 +37,15 @@ interface NavItem {
   icon: ComponentType<{ className?: string }>;
   /** Standalone internal tools on sibling subdomains — rendered as plain external links. */
   external?: boolean;
+  /** Scoped roles (besides super_admin) that may see this item. Omit = super_admin only. */
+  roles?: AdminRole[];
 }
+
+// Coarse UI scoping. super_admin sees everything; these are the extra grants per scoped role. The
+// platform API is the real gate (default-deny) — this just avoids showing links that would 404.
+const READ: AdminRole[] = ['support', 'billing', 'read_only'];
+const SUPPORT: AdminRole[] = ['support'];
+const BILLING: AdminRole[] = ['billing'];
 
 const SALES_CENTRE_URL =
   process.env['NEXT_PUBLIC_SALES_CENTRE_URL'] ?? 'https://salescentre.rehabsync.app';
@@ -52,20 +61,20 @@ const NAV_GROUPS: NavGroup[] = [
   {
     groupName: 'Overview',
     items: [
-      { label: 'Overview', href: '/admin', icon: LayoutDashboard },
-      { label: 'Web Analytics', href: '/admin/analytics', icon: LineChart },
-      { label: 'Platform', href: '/admin/platform', icon: Server },
+      { label: 'Overview', href: '/admin', icon: LayoutDashboard, roles: READ },
+      { label: 'Web Analytics', href: '/admin/analytics', icon: LineChart, roles: READ },
+      { label: 'Platform', href: '/admin/platform', icon: Server, roles: READ },
     ],
   },
   {
     groupName: 'Support',
     items: [
-      { label: 'Support', href: '/admin/support', icon: LifeBuoy },
+      { label: 'Support', href: '/admin/support', icon: LifeBuoy, roles: SUPPORT },
       { label: 'Platform Admins', href: '/admin/admins', icon: UserCog },
-      { label: 'Audit', href: '/admin/audit', icon: ClipboardList },
-      { label: 'Tenants', href: '/admin/tenants', icon: Building2 },
-      { label: 'Pilot', href: '/admin/pilot', icon: FlaskConical },
-      { label: 'Broadcasts', href: '/admin/broadcasts', icon: Megaphone },
+      { label: 'Audit', href: '/admin/audit', icon: ClipboardList, roles: READ },
+      { label: 'Tenants', href: '/admin/tenants', icon: Building2, roles: READ },
+      { label: 'Pilot', href: '/admin/pilot', icon: FlaskConical, roles: READ },
+      { label: 'Broadcasts', href: '/admin/broadcasts', icon: Megaphone, roles: SUPPORT },
     ],
   },
   {
@@ -73,10 +82,10 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { label: 'Sales CRM', href: '/admin/crm', icon: Users },
       { label: 'Demo', href: '/admin/demo', icon: MonitorPlay },
-      { label: 'Billing', href: '/admin/billing', icon: CreditCard },
-      { label: 'Plans', href: '/admin/plans', icon: CreditCard },
-      { label: 'Subscriptions', href: '/admin/subscriptions', icon: CreditCard },
-      { label: 'Store', href: '/admin/store', icon: ShoppingBag },
+      { label: 'Billing', href: '/admin/billing', icon: CreditCard, roles: BILLING },
+      { label: 'Plans', href: '/admin/plans', icon: CreditCard, roles: BILLING },
+      { label: 'Subscriptions', href: '/admin/subscriptions', icon: CreditCard, roles: BILLING },
+      { label: 'Store', href: '/admin/store', icon: ShoppingBag, roles: BILLING },
     ],
   },
   {
@@ -89,18 +98,25 @@ const NAV_GROUPS: NavGroup[] = [
   {
     groupName: 'Operations',
     items: [
-      { label: 'AI Usage', href: '/admin/ai', icon: Bot },
+      { label: 'AI Usage', href: '/admin/ai', icon: Bot, roles: READ },
       { label: 'Knowledgebase', href: '/admin/knowledgebase', icon: BookOpen },
       { label: 'Maintenance Agent', href: '/admin/agent', icon: Wrench },
       { label: 'Data Retention', href: '/admin/data-retention', icon: Trash2 },
-      { label: 'Status Page', href: '/admin/status', icon: ShieldCheck },
-      { label: 'Domains', href: '/admin/domains', icon: Globe2 },
+      { label: 'Status Page', href: '/admin/status', icon: ShieldCheck, roles: READ },
+      { label: 'Domains', href: '/admin/domains', icon: Globe2, roles: READ },
       { label: 'Onboarding', href: '/admin/onboarding', icon: Rocket },
     ],
   },
 ];
 
-const NAV_ITEMS = NAV_GROUPS.flatMap((group) => group.items);
+/** super_admin sees everything; a scoped role sees only items whose `roles` include it. */
+function groupsForRole(role: AdminRole | undefined): NavGroup[] {
+  if (!role || role === 'super_admin' || role === 'admin') return NAV_GROUPS;
+  return NAV_GROUPS.map((group) => ({
+    ...group,
+    items: group.items.filter((item) => item.roles?.includes(role)),
+  })).filter((group) => group.items.length > 0);
+}
 
 const adminLinkBaseStyle: CSSProperties = {
   color: 'var(--text-secondary)',
@@ -124,8 +140,10 @@ function clearAdminLinkHover(element: HTMLElement, active: boolean) {
   element.style.color = 'var(--text-secondary)';
 }
 
-export function AdminSidebar() {
+export function AdminSidebar({ role }: { role?: AdminRole }) {
   const pathname = usePathname();
+  const groups = groupsForRole(role);
+  const items = groups.flatMap((group) => group.items);
 
   const sidebarContent = (
     <div
@@ -151,7 +169,7 @@ export function AdminSidebar() {
       {/* Nav items */}
       <nav className="custom-scrollbar flex-1 overflow-y-auto px-3 py-4">
         <div className="space-y-5">
-          {NAV_GROUPS.map((group) => (
+          {groups.map((group) => (
             <div key={group.groupName} className="space-y-1">
               <h3
                 className="px-3 text-[10px] font-semibold uppercase tracking-wider"
@@ -245,7 +263,7 @@ export function AdminSidebar() {
           RehabSync Admin
         </span>
         <nav className="custom-scrollbar flex gap-2 overflow-x-auto">
-          {NAV_ITEMS.map((item) => {
+          {items.map((item) => {
             if (item.external) {
               return (
                 <a

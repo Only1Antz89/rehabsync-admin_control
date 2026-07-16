@@ -3,6 +3,7 @@
 import { usePathname } from 'next/navigation';
 import type { ReactNode } from 'react';
 import { AdminSidebar } from './AdminSidebar';
+import type { AdminRole } from '../../lib/admin-api';
 import { OnboardingTour, type TourStep } from '../../lib/OnboardingTour';
 
 const ADMIN_TOUR_STEPS: TourStep[] = [
@@ -41,7 +42,7 @@ const ADMIN_TOUR_STEPS: TourStep[] = [
   },
 ];
 
-export function AdminFrame({ children }: { children: ReactNode }) {
+export function AdminFrame({ children, role }: { children: ReactNode; role?: AdminRole }) {
   const pathname = usePathname();
   const isLogin = pathname === '/admin/login';
 
@@ -51,7 +52,7 @@ export function AdminFrame({ children }: { children: ReactNode }) {
 
   return (
     <div className="admin-theme rs-app-shell flex" style={{ backgroundColor: 'var(--bg-primary)' }}>
-      <AdminSidebar />
+      <AdminSidebar role={role} />
       <div className="flex-1 lg:pl-64 min-w-0 min-h-0">
         <main className="rs-main-scroll h-full p-6" style={{ backgroundColor: 'var(--bg-primary)' }}>{children}</main>
       </div>
