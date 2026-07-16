@@ -15,6 +15,7 @@ import { TenantGovernance } from './TenantGovernance';
 import type { TenantEntitlementsView } from './TenantGovernance';
 import { TenantStoreSettings } from './TenantStoreSettings';
 import type { TenantStoreSettingsView } from './TenantStoreSettings';
+import { TenantBillingPanel } from './TenantBillingPanel';
 import { adminFetch } from '../../../../../lib/admin-api';
 
 interface TenantDetail {
@@ -537,6 +538,9 @@ export default async function TenantDetailPage({
           </div>
         </Card>
       )}
+
+      {/* Billing & dunning (Stripe) */}
+      <TenantBillingPanel tenantId={tenant.id} />
 
       {/* Pilot programme & entitlements control surface */}
       {entitlements && <TenantGovernance tenantId={tenant.id} data={entitlements} />}
