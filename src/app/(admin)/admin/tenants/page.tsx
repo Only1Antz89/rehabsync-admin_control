@@ -4,7 +4,26 @@ import { Badge } from '@rs/ui';
 import type { BadgeVariant } from '@rs/ui';
 import { TenantsFilter } from './TenantsFilter';
 import { TenantActions } from './TenantActions';
+import { HealthBadge, type HealthBand } from './HealthBadge';
 import { adminFetch } from '../../../../lib/admin-api';
+
+interface TenantHealthRow {
+  tenantId: string;
+  score: number;
+  band: HealthBand;
+}
+
+/** Batch health scores keyed by tenant id. Best-effort: an unavailable API just hides the column. */
+async function fetchTenantHealth(): Promise<Map<string, TenantHealthRow>> {
+  try {
+    const res = await adminFetch('/api/v1/admin/tenants/health', { next: { revalidate: 0 } });
+    if (!res.ok) return new Map();
+    const data = (await res.json()) as TenantHealthRow[];
+    return new Map(data.map((h) => [h.tenantId, h]));
+  } catch {
+    return new Map();
+  }
+}
 
 interface TenantRow {
   id: string;
@@ -83,7 +102,7 @@ export default async function TenantsPage({
   searchParams: Promise<{ search?: string; status?: string; planId?: string }>;
 }) {
   const params = await searchParams;
-  const { tenants, total } = await fetchTenants(params);
+  const [{ tenants, total }, health] = await Promise.all([fetchTenants(params), fetchTenantHealth()]);
   const count = total ?? tenants.length;
 
   return (
@@ -126,6 +145,9 @@ export default async function TenantsPage({
                   Status
                 </th>
                 <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text-secondary)' }}>
+                  Health
+                </th>
+                <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text-secondary)' }}>
                   Plan
                 </th>
                 <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text-secondary)' }}>
@@ -142,7 +164,7 @@ export default async function TenantsPage({
             <tbody style={{ borderColor: 'var(--border-secondary)' }} className="divide-y">
               {tenants.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-4 py-12 text-center text-sm" style={{ color: 'var(--text-secondary)' }}>
+                  <td colSpan={8} className="px-4 py-12 text-center text-sm" style={{ color: 'var(--text-secondary)' }}>
                     No tenants found.
                   </td>
                 </tr>
@@ -165,6 +187,12 @@ export default async function TenantsPage({
                       <Badge variant={statusBadgeVariant(tenant.status)}>
                         {tenant.status}
                       </Badge>
+                    </td>
+                    <td className="px-4 py-3">
+                      {(() => {
+                        const h = health.get(tenant.id);
+                        return h ? <HealthBadge score={h.score} band={h.band} /> : <span style={{ color: 'var(--text-secondary)' }}>—</span>;
+                      })()}
                     </td>
                     <td className="px-4 py-3" style={{ color: 'var(--text-secondary)' }}>
                       {tenant.planName ?? '—'}

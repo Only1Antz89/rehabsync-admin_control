@@ -5,6 +5,7 @@ import { notFound } from 'next/navigation';
 import { Badge, Card } from '@rs/ui';
 import type { BadgeVariant } from '@rs/ui';
 import { TenantActions } from '../TenantActions';
+import { HealthBadge, type HealthBand } from '../HealthBadge';
 import { OverridePlanModal } from './OverridePlanModal';
 import { ExtendTrialModal } from './ExtendTrialModal';
 import { EnablePilotModal } from './EnablePilotModal';
@@ -142,6 +143,31 @@ async function fetchStoreSettings(id: string): Promise<TenantStoreSettingsView |
   return null;
 }
 
+interface TenantHealthFactor {
+  key: string;
+  label: string;
+  weight: number;
+  points: number;
+  detail: string;
+}
+interface TenantHealthDetail {
+  score: number;
+  band: HealthBand;
+  factors: TenantHealthFactor[];
+}
+
+async function fetchTenantHealth(id: string): Promise<TenantHealthDetail | null> {
+  try {
+    const res = await adminFetch(`/api/v1/admin/tenants/${id}/health`, { next: { revalidate: 0 } });
+    if (res.ok) {
+      return (await res.json()) as TenantHealthDetail;
+    }
+  } catch {
+    // API unavailable
+  }
+  return null;
+}
+
 function lifecycleBadgeVariant(stage: string): BadgeVariant {
   switch (stage) {
     case 'active':
@@ -234,11 +260,12 @@ export default async function TenantDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const [detail, plans, entitlements, storeSettings] = await Promise.all([
+  const [detail, plans, entitlements, storeSettings, health] = await Promise.all([
     fetchTenantDetail(id),
     fetchPlans(),
     fetchEntitlements(id),
     fetchStoreSettings(id),
+    fetchTenantHealth(id),
   ]);
 
   if (!detail) {
@@ -280,15 +307,19 @@ export default async function TenantDetailPage({
                 const t = trialInfo(tenant.status, tenant.trialEndsAt);
                 return t ? <Badge variant={t.variant}>{t.label}</Badge> : null;
               })()}
-              <span
-                className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold"
-                style={{
-                  backgroundColor: healthScore >= 70 ? '#dcfce7' : healthScore >= 40 ? '#fef3c7' : '#fee2e2',
-                  color: healthScore >= 70 ? '#15803d' : healthScore >= 40 ? '#92400e' : '#b91c1c',
-                }}
-              >
-                {healthScore >= 70 ? 'Healthy' : healthScore >= 40 ? 'At Risk' : 'Critical'} ({healthScore})
-              </span>
+              {health ? (
+                <HealthBadge score={health.score} band={health.band} />
+              ) : (
+                <span
+                  className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold"
+                  style={{
+                    backgroundColor: healthScore >= 70 ? '#dcfce7' : healthScore >= 40 ? '#fef3c7' : '#fee2e2',
+                    color: healthScore >= 70 ? '#15803d' : healthScore >= 40 ? '#92400e' : '#b91c1c',
+                  }}
+                >
+                  {healthScore >= 70 ? 'Healthy' : healthScore >= 40 ? 'At Risk' : 'Critical'} ({healthScore})
+                </span>
+              )}
               {entitlements && (
                 <Badge variant={lifecycleBadgeVariant(entitlements.lifecycleStage)}>
                   {entitlements.lifecycleStage}
@@ -467,6 +498,45 @@ export default async function TenantDetailPage({
           </div>
         </Card>
       </div>
+
+      {/* Tenant health — transparent score with a factor breakdown (no black box). */}
+      {health && (
+        <Card title="Tenant health" description="How this 0–100 score is made up. Ranked by contribution; each factor is weighted.">
+          <div className="flex items-center gap-3 mb-4">
+            <HealthBadge score={health.score} band={health.band} />
+            <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+              {health.score} / 100
+            </span>
+          </div>
+          <div className="space-y-3">
+            {[...health.factors]
+              .sort((a, b) => b.points / b.weight - a.points / a.weight)
+              .map((f) => {
+                const pct = f.weight > 0 ? Math.round((f.points / f.weight) * 100) : 0;
+                return (
+                  <div key={f.key}>
+                    <div className="flex items-center justify-between text-sm mb-1">
+                      <span style={{ color: 'var(--text-primary)' }}>{f.label}</span>
+                      <span style={{ color: 'var(--text-secondary)' }}>
+                        {f.points} / {f.weight} pts
+                      </span>
+                    </div>
+                    <div className="h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: 'var(--bg-secondary)' }}>
+                      <div
+                        className="h-full rounded-full"
+                        style={{
+                          width: `${pct}%`,
+                          backgroundColor: pct >= 75 ? '#16a34a' : pct >= 40 ? '#d97706' : '#dc2626',
+                        }}
+                      />
+                    </div>
+                    <p className="text-xs mt-1" style={{ color: 'var(--text-secondary)' }}>{f.detail}</p>
+                  </div>
+                );
+              })}
+          </div>
+        </Card>
+      )}
 
       {/* Pilot programme & entitlements control surface */}
       {entitlements && <TenantGovernance tenantId={tenant.id} data={entitlements} />}
