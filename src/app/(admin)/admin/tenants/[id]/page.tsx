@@ -16,6 +16,8 @@ import type { TenantEntitlementsView } from './TenantGovernance';
 import { TenantStoreSettings } from './TenantStoreSettings';
 import type { TenantStoreSettingsView } from './TenantStoreSettings';
 import { TenantBillingPanel } from './TenantBillingPanel';
+import { TenantDsarPanel } from './TenantDsarPanel';
+import { getAdminSession } from '../../../../../lib/admin-api';
 import { adminFetch } from '../../../../../lib/admin-api';
 
 interface TenantDetail {
@@ -261,13 +263,15 @@ export default async function TenantDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const [detail, plans, entitlements, storeSettings, health] = await Promise.all([
+  const [detail, plans, entitlements, storeSettings, health, adminSession] = await Promise.all([
     fetchTenantDetail(id),
     fetchPlans(),
     fetchEntitlements(id),
     fetchStoreSettings(id),
     fetchTenantHealth(id),
+    getAdminSession(),
   ]);
+  const isSuperAdmin = adminSession?.role === 'super_admin';
 
   if (!detail) {
     notFound();
@@ -541,6 +545,9 @@ export default async function TenantDetailPage({
 
       {/* Billing & dunning (Stripe) */}
       <TenantBillingPanel tenantId={tenant.id} />
+
+      {/* GDPR DSAR — super admin only (the API also enforces this) */}
+      {isSuperAdmin && <TenantDsarPanel tenantId={tenant.id} />}
 
       {/* Pilot programme & entitlements control surface */}
       {entitlements && <TenantGovernance tenantId={tenant.id} data={entitlements} />}
