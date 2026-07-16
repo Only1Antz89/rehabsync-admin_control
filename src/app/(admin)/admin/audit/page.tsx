@@ -1,5 +1,6 @@
 import React, { Suspense } from 'react';
 import { adminFetch } from '../../../../lib/admin-api';
+import { SavedViews } from '../../../../lib/SavedViews';
 import { AuditLogTable } from '../../../(platform)/audit/AuditLogTable';
 import type { AuditAggregates, AuditEntry } from '../../../(platform)/audit/AuditLogTable';
 
@@ -55,16 +56,21 @@ export default async function SuperadminAuditPage({
 
   return (
     <div className="space-y-8">
-      <div>
-        <p className="rs-kicker">Platform governance</p>
-        <h1 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>
-          {isTenantScoped ? 'Tenant Audit' : 'Superadmin Audit'}
-        </h1>
-        <p className="mt-1 text-sm" style={{ color: 'var(--text-secondary)' }}>
-          {isTenantScoped
-            ? 'Tenant-scoped action monitoring, governance checks, clinic breakdowns, consultant attribution, Kinetix review status, and date-range audit review.'
-            : 'Platform-wide tenant action monitoring with tenant filters, support-ticket triage, clinic breakdowns, consultant attribution, Kinetix review status, and date-range audit review.'}
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="rs-kicker">Platform governance</p>
+          <h1 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>
+            {isTenantScoped ? 'Tenant Audit' : 'Superadmin Audit'}
+          </h1>
+          <p className="mt-1 text-sm" style={{ color: 'var(--text-secondary)' }}>
+            {isTenantScoped
+              ? 'Tenant-scoped action monitoring, governance checks, clinic breakdowns, consultant attribution, Kinetix review status, and date-range audit review.'
+              : 'Platform-wide tenant action monitoring with tenant filters, support-ticket triage, clinic breakdowns, consultant attribution, Kinetix review status, and date-range audit review.'}
+          </p>
+        </div>
+        <Suspense>
+          <SavedViews storageKey="audit" paramKeys={['tenantId', 'action', 'from', 'to']} />
+        </Suspense>
       </div>
 
       <Suspense fallback={<p className="text-sm" style={{ color: 'var(--text-muted)' }}>Loading...</p>}>
