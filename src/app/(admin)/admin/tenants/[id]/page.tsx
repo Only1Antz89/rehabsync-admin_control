@@ -15,6 +15,8 @@ import { TenantGovernance } from './TenantGovernance';
 import type { TenantEntitlementsView } from './TenantGovernance';
 import { TenantStoreSettings } from './TenantStoreSettings';
 import type { TenantStoreSettingsView } from './TenantStoreSettings';
+import { TenantEmbedSettings } from './TenantEmbedSettings';
+import type { TenantEmbedSettingsView } from './TenantEmbedSettings';
 import { TenantBillingPanel } from './TenantBillingPanel';
 import { TenantDsarPanel } from './TenantDsarPanel';
 import { getAdminSession } from '../../../../../lib/admin-api';
@@ -146,6 +148,25 @@ async function fetchStoreSettings(id: string): Promise<TenantStoreSettingsView |
   return null;
 }
 
+async function fetchEmbedSettings(id: string): Promise<TenantEmbedSettingsView | null> {
+  try {
+    const res = await adminFetch(`/api/v1/admin/tenants/${id}/embed-settings`, {
+      next: { revalidate: 0 },
+    });
+    if (res.ok) {
+      return (await res.json()) as TenantEmbedSettingsView;
+    }
+  } catch {
+    // API unavailable
+  }
+  return null;
+}
+
+// Origin of the customer-facing web app, where the widget (and its /api/embed/* routes) is served.
+function resolveEmbedBaseUrl(): string {
+  return (process.env['REHABSYNC_WEB_URL']?.trim() || 'https://app.rehabsync.app').replace(/\/+$/, '');
+}
+
 interface TenantHealthFactor {
   key: string;
   label: string;
@@ -263,11 +284,12 @@ export default async function TenantDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const [detail, plans, entitlements, storeSettings, health, adminSession] = await Promise.all([
+  const [detail, plans, entitlements, storeSettings, embedSettings, health, adminSession] = await Promise.all([
     fetchTenantDetail(id),
     fetchPlans(),
     fetchEntitlements(id),
     fetchStoreSettings(id),
+    fetchEmbedSettings(id),
     fetchTenantHealth(id),
     getAdminSession(),
   ]);
@@ -554,6 +576,15 @@ export default async function TenantDetailPage({
 
       {/* Store (recommended equipment) credentials & config */}
       {storeSettings && <TenantStoreSettings tenantId={tenant.id} data={storeSettings} />}
+
+      {/* Website embed — grant + configure the embeddable service catalogue widget */}
+      {embedSettings && (
+        <TenantEmbedSettings
+          tenantId={tenant.id}
+          data={embedSettings}
+          embedBaseUrl={resolveEmbedBaseUrl()}
+        />
+      )}
 
       {/* Data retention & offboarding oversight (read-only) */}
       <Card title="Data & compliance" description="Retention, legal holds and offboarding status for this clinic.">
