@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Badge, Card } from '@rs/ui';
 
@@ -133,6 +133,56 @@ export function TenantEmbedSettings({
         : '',
     [base, publicKey],
   );
+
+  // ── Live preview ────────────────────────────────────────────────────────────
+  const previewRef = useRef<HTMLIFrameElement>(null);
+  const [device, setDevice] = useState<'desktop' | 'mobile'>('desktop');
+  const [previewNonce, setPreviewNonce] = useState(0);
+  const [previewHeight, setPreviewHeight] = useState(560);
+
+  // The saved + granted state gates whether the public widget endpoint renders at all.
+  const canPreview = data.embedAvailable && data.enabled && Boolean(publicKey);
+
+  // Reflect the current (possibly unsaved) display options via the widget's query overrides.
+  const previewSrc = useMemo(() => {
+    if (!publicKey) return null;
+    const p = new URLSearchParams();
+    p.set('theme', theme);
+    if (/^#[0-9a-fA-F]{6}$/.test(accentColor)) p.set('accent', accentColor);
+    p.set('prices', showPrices ? '1' : '0');
+    p.set('durations', showDurations ? '1' : '0');
+    if (headline.trim()) p.set('headline', headline.trim());
+    if (ctaLabel.trim()) p.set('cta', ctaLabel.trim());
+    p.set('_', String(previewNonce));
+    return `${base}/api/embed/${publicKey}?${p.toString()}`;
+  }, [base, publicKey, theme, accentColor, showPrices, showDurations, headline, ctaLabel, previewNonce]);
+
+  // Debounce iframe reloads so typing in the heading/label fields doesn't thrash the preview.
+  const [debouncedSrc, setDebouncedSrc] = useState<string | null>(previewSrc);
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSrc(previewSrc), 450);
+    return () => clearTimeout(t);
+  }, [previewSrc]);
+
+  // Auto-size the preview to the widget's reported height (the same postMessage the loader uses).
+  useEffect(() => {
+    let appOrigin: string | null = null;
+    try {
+      appOrigin = new URL(base).origin;
+    } catch {
+      appOrigin = null;
+    }
+    function onMessage(ev: MessageEvent) {
+      if (previewRef.current && ev.source !== previewRef.current.contentWindow) return;
+      if (appOrigin && ev.origin !== appOrigin) return;
+      const d = ev.data as { type?: string; height?: number } | null;
+      if (d && d.type === 'rehabsync-embed:resize' && typeof d.height === 'number' && d.height > 0) {
+        setPreviewHeight(Math.min(1400, Math.max(200, Math.ceil(d.height))));
+      }
+    }
+    window.addEventListener('message', onMessage);
+    return () => window.removeEventListener('message', onMessage);
+  }, [base]);
 
   function addOrigin() {
     const origin = normaliseOriginInput(originDraft);
@@ -432,6 +482,68 @@ export function TenantEmbedSettings({
                   <code>{iframeSnippet}</code>
                 </pre>
               </div>
+            </div>
+          )}
+        </div>
+
+        {/* Live preview — renders the real widget with the current (unsaved) display options */}
+        <div className="border-t border-[var(--border-primary)] pt-4">
+          <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+            <span className="text-sm font-medium text-[var(--text-primary)]">Live preview</span>
+            {canPreview && (
+              <div className="flex items-center gap-2">
+                <div className="inline-flex overflow-hidden rounded-lg border border-[var(--border-primary)]">
+                  {(['desktop', 'mobile'] as const).map((d) => (
+                    <button
+                      key={d}
+                      type="button"
+                      onClick={() => setDevice(d)}
+                      className="px-2.5 py-1 text-xs font-medium"
+                      style={{
+                        backgroundColor: device === d ? '#0d9488' : 'transparent',
+                        color: device === d ? '#fff' : 'var(--text-secondary)',
+                      }}
+                    >
+                      {d === 'desktop' ? 'Desktop' : 'Mobile'}
+                    </button>
+                  ))}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setPreviewNonce((n) => n + 1)}
+                  className="rounded-md border px-2.5 py-1 text-xs font-medium border-[var(--border-primary)] text-[var(--text-secondary)]"
+                >
+                  Refresh
+                </button>
+              </div>
+            )}
+          </div>
+
+          {canPreview && debouncedSrc ? (
+            <>
+              <div className="rounded-xl border border-[var(--border-primary)] bg-[var(--bg-secondary)] p-3">
+                <div style={{ maxWidth: device === 'mobile' ? 390 : '100%', margin: '0 auto' }}>
+                  <iframe
+                    ref={previewRef}
+                    src={debouncedSrc}
+                    title="Widget live preview"
+                    className="w-full rounded-lg bg-white"
+                    style={{ height: previewHeight, border: '1px solid var(--border-primary)' }}
+                  />
+                </div>
+              </div>
+              <p className="mt-1 text-xs text-[var(--text-secondary)]">
+                Reflects your unsaved display options live. Service, origin and key changes apply once saved.
+                The preview loads from the live widget, so it only renders once the widget is enabled and saved.
+              </p>
+            </>
+          ) : (
+            <div className="rounded-xl border border-dashed border-[var(--border-primary)] px-4 py-8 text-center text-sm text-[var(--text-secondary)]">
+              {!data.embedAvailable
+                ? 'Grant the Website embed capability (entitlements panel above) to preview the widget.'
+                : !publicKey
+                  ? 'Save once to issue a public key, then enable the widget to preview it here.'
+                  : 'Enable the widget and save to see a live preview here.'}
             </div>
           )}
         </div>
