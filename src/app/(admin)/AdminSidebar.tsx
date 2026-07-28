@@ -18,9 +18,11 @@ import {
   LineChart,
   Megaphone,
   MonitorPlay,
+  PanelsTopLeft,
   Rocket,
   Send,
   Server,
+  ShieldAlert,
   ShieldCheck,
   Trash2,
   UserCog,
@@ -64,6 +66,7 @@ const NAV_GROUPS: NavGroup[] = [
       { label: 'Overview', href: '/admin', icon: LayoutDashboard, roles: READ },
       { label: 'Web Analytics', href: '/admin/analytics', icon: LineChart, roles: READ },
       { label: 'Platform', href: '/admin/platform', icon: Server, roles: READ },
+      { label: 'Website', href: '/admin/website', icon: PanelsTopLeft, roles: READ },
     ],
   },
   {
@@ -99,6 +102,7 @@ const NAV_GROUPS: NavGroup[] = [
     groupName: 'Operations',
     items: [
       { label: 'AI Usage', href: '/admin/ai', icon: Bot, roles: READ },
+      { label: 'SaMD settings', href: '/admin/samd-settings', icon: ShieldAlert, roles: READ },
       { label: 'Knowledgebase', href: '/admin/knowledgebase', icon: BookOpen },
       { label: 'Maintenance Agent', href: '/admin/agent', icon: Wrench },
       { label: 'Data Retention', href: '/admin/data-retention', icon: Trash2 },
